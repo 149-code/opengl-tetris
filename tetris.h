@@ -26,6 +26,12 @@ enum BlockType
 	BT_z,
 };
 
+enum RenderMode
+{
+	RM_fill,
+	RM_outline,
+};
+
 typedef struct TetrisBlock
 {
 	int x;
@@ -36,6 +42,7 @@ typedef struct TetrisBlock
 	void move_left();
 	void move_right();
 	void rotate();
+	int project();
 	std::vector<std::complex<int>> get_squares_pos();
 } TetrisBlock;
 
@@ -45,7 +52,7 @@ void move_block();
 void render_block_to_buffer();
 void check_and_create_block();
 int rand();
-void render_board(int board[BOARD_X][BOARD_Y]);
+void render_board(int board[BOARD_X][BOARD_Y], int mode);
 bool block_is_grounded();
 void handle_input();
 void init_key_cooldown();

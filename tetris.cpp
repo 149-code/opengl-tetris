@@ -21,6 +21,7 @@
 GLFWwindow* window;
 int game_board[BOARD_X][BOARD_Y];
 int block_buffer[BOARD_X][BOARD_Y];
+int projection_buffer[BOARD_X][BOARD_Y];
 std::optional<TetrisBlock> current_block;
 std::map<int, int> key_cooldown;
 int block_move_counter = 0;
@@ -87,6 +88,34 @@ void TetrisBlock::rotate()
 	}
 }
 
+int TetrisBlock::project()
+{
+	auto positions = this->get_squares_pos();
+	int i = 0;
+
+	for (;;)
+	{
+		bool to_continue = true;
+
+		for (auto pos : positions)
+		{
+			if (game_board[pos.real()][pos.imag() - i - 1] != GC_empty ||
+			    pos.imag() - i == 0)
+			{
+				to_continue = false;
+				break;
+			}
+		}
+
+		if (!to_continue)
+			break;
+		else
+			i++;
+	}
+
+	return i;
+}
+
 std::vector<std::complex<int>> TetrisBlock::get_squares_pos()
 {
 	std::vector<std::complex<int>> ret = {};
@@ -148,6 +177,9 @@ void handle_input()
 				fast_fall = false;
 			}
 		}
+
+		// hard drop TODO
+		// if (glfwGetKey(window, GLWF_KEY_SPACE) == GLFW_PRESS)
 	}
 
 	for (auto key : keys_with_cooldown)
@@ -157,23 +189,35 @@ void handle_input()
 	}
 }
 
-void draw_square(double x, double y, double dx, double dy, std::tuple<double, double, double> rgb)
+void draw_square(double x, double y, double dx, double dy, std::tuple<double, double, double> rgb,
+		 int mode)
 {
 	auto [r, g, b] = rgb;
 	glColor3d(r, g, b);
 
-	glBegin(GL_POLYGON);
+	if (mode == RM_fill)
+		glBegin(GL_POLYGON);
+	else if (mode == RM_outline)
+		glBegin(GL_LINES);
 
 	glVertex2d(x, y);
 	glVertex2d(x + dx, y);
 	glVertex2d(x + dx, y + dy);
 	glVertex2d(x, y + dy);
 
+	if (mode == RM_outline)
+	{
+		glVertex2d(x, y);
+		glVertex2d(x, y + dy);
+		glVertex2d(x + dx, y);
+		glVertex2d(x + dx, y + dy);
+	}
+
 	glEnd();
 	glFlush();
 }
 
-void render_board(int board[BOARD_X][BOARD_Y])
+void render_board(int board[BOARD_X][BOARD_Y], int mode)
 {
 	std::optional<std::tuple<double, double, double>> colors = {};
 
@@ -212,7 +256,7 @@ void render_board(int board[BOARD_X][BOARD_Y])
 			if (colors)
 			{
 				draw_square(index_to_pos(x, BOARD_X), index_to_pos(y, BOARD_Y),
-					    2.0 / BOARD_X, 2.0 / BOARD_Y, colors.value());
+					    2.0 / BOARD_X, 2.0 / BOARD_Y, colors.value(), mode);
 			}
 		}
 	}
@@ -260,6 +304,23 @@ void render_block_to_buffer()
 			if (y + block_pos.imag() < BOARD_Y)
 				block_buffer[x + block_pos.real()][y + block_pos.imag()] =
 				    block_type_to_color(current_block->block_type);
+		}
+	}
+}
+
+void render_projection_to_buffer()
+{
+	std::memset((int*) projection_buffer, GC_empty, sizeof(int) * BOARD_X * BOARD_Y);
+
+	if (current_block)
+	{
+		auto positions = current_block->get_squares_pos();
+		int offset = current_block->project();
+
+		for (auto pos : positions)
+		{
+			projection_buffer[pos.real()][pos.imag() - offset] =
+			    block_type_to_color(current_block->block_type);
 		}
 	}
 }
@@ -368,14 +429,19 @@ void mainloop()
 
 	check_and_create_block();
 	render_block_to_buffer();
+	render_projection_to_buffer();
 
 	glClear(GL_COLOR_BUFFER_BIT);
-	render_board(game_board);
-	render_board(block_buffer);
+	render_board(game_board, RM_fill);
+	render_board(block_buffer, RM_fill);
+	render_board(projection_buffer, RM_outline);
 	draw_cutoff_line();
 
 	glfwSwapBuffers(window);
 	glfwPollEvents();
+
+	if (current_block)
+		std::cout << current_block->project() << std::endl;
 }
 
 int main()
