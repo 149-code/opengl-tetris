@@ -42,7 +42,11 @@ typedef struct TetrisBlock
 	void move_left();
 	void move_right();
 	void rotate();
+	bool can_rotate();
+
+	void hard_drop();
 	int project();
+
 	std::vector<std::complex<int>> get_squares_pos();
 } TetrisBlock;
 
@@ -79,6 +83,5 @@ inline int block_type_to_color(int block_type)
 			return GC_red;
 	}
 
-	std::cout << block_type;
-	return GC_empty;
+	return -1;
 }
